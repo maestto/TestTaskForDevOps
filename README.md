@@ -1,3 +1,51 @@
+## Запуск
+
+### Быстрый старт
+
+```bash
+git clone <repo-url>
+cd TestTaskForDevOps
+cp .env.example .env
+# отредактировать .env и задать POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+docker compose up -d
+```
+
+После старта фронтенд будет доступен на `http://localhost/`, API на `http://localhost/api/time`.
+
+Первый запуск занимает время (сначала поднимается PostgreSQL, потом бэкенд, потом nginx), так настроены healthcheck-зависимости.
+
+### Переменные окружения
+
+Все переменные задаются в файле `.env` (создать из `.env.example`):
+
+| Переменная | Описание |
+|---|---|
+| `POSTGRES_USER` | Имя пользователя PostgreSQL |
+| `POSTGRES_PASSWORD` | Пароль |
+| `POSTGRES_DB` | Название базы данных |
+
+Остальные параметры прописаны в `docker-compose.yml`. PostgreSQL доступен только через бэкенд.
+
+### Мониторинг
+
+Отдельный стек: Prometheus + Grafana + cadvisor + Loki + Promtail. Запускается поверх основного:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
+
+Grafana доступна на `http://localhost:3001`. Логин и пароль берутся из `.env` (переменные `GF_ADMIN_USER` и `GF_ADMIN_PASSWORD`, по умолчанию `admin/admin`). Дашборд "Container Overview" появляется автоматически (CPU и память контейнеров плюс логи).
+
+Prometheus scrape-метрики: `http://localhost:9090`. cadvisor собирает метрики контейнеров, Promtail читает логи из Docker и отправляет в Loki.
+
+### Continuous Deployment
+
+В `docker-compose.yml` поднимается [Watchtower](https://containrrr.dev/watchtower/). Он раз в минуту проверяет ghcr.io и перезапускает контейнеры при появлении нового образа. Чтобы заработало, нужно задать `IMAGE_PREFIX` в `.env` (например `ghcr.io/youruser/testtaskfordevops`).
+
+Второй вариант тоже реализован, job `deploy` в CI workflow. Если выставить переменную `DEPLOY_HOST` в Settings > Variables, после успешной сборки он подключится по SSH к серверу и выполнит `docker compose pull && docker compose up -d`. Нужные настройки: переменные `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` и секрет `DEPLOY_KEY` с приватным ключом.
+
+---
+
 # Тестовое задание: Простая DevOps-инфраструктура с CI/CD
 
 [![MIT License](https://img.shields.io/github/license/serega404/TestTaskForDevOps)](https://github.com/serega404/TestTaskForDevOps/blob/main/LICENSE)
